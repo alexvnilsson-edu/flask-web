@@ -9,7 +9,7 @@ function getCurrentLocation() {
   });
 }
 
-class WeatherStation extends React.Component {
+class WeatherStationComponent extends React.Component {
   constructor(props) {
     super(props);
 
@@ -34,6 +34,33 @@ class WeatherStation extends React.Component {
   }
 }
 
+class WeatherStation{
+  constructor(station) {
+    this.id = station.id;
+    this.name = station.name;
+    this.coords = station.coords;
+    this.measurements = null;
+  }
+
+  getLatestMeasurements() {
+    console.log("getLatestMeasurements() station.id: " + this.id);
+    return new Promise((resolve, reject) => {
+      fetch("https://apex.oracle.com/pls/apex/raspberrypi/weatherstation/getlatestmeasurements/" + this.id)
+      .then(res => res.json())
+      .then((result) => {
+        const measurements = result.items.find(r => r.weather_stn_id === this.id);
+        this.measurements = measurements;
+
+        return resolve(this);
+      });
+    });
+  }
+}
+
+function updateWeatherStation(weatherStations, stationToUpdate) {
+  return weatherStations.map(station => station.id === stationToUpdate.id ? stationToUpdate : station);
+}
+
 class WeatherComponent extends React.Component {
   constructor(props) {
     super(props);
@@ -41,6 +68,7 @@ class WeatherComponent extends React.Component {
     this.state = {
       error: null,
       isWeatherDataLoaded: false,
+      currentStation: null,
       currentStationId: null,
       myLocation: null,
       weatherStations: []
@@ -53,14 +81,14 @@ class WeatherComponent extends React.Component {
       .then((res) => new Promise((resolve, reject) => {
         const stations = [];
 
-        res.items.forEach(station => stations.push({
+        res.items.forEach(station => stations.push(new WeatherStation({
           id: station.weather_stn_id,
           name: station.weather_stn_name,
           coords: {
             lat: station.weather_stn_lat,
             long: station.weather_stn_long
           }
-        }));
+        })));
 
         resolve(stations);        
       }))
@@ -83,6 +111,32 @@ class WeatherComponent extends React.Component {
     this.setState({
       currentStationId: station.id,
     });
+
+    station.getLatestMeasurements().then((result) => {
+      console.log("getLatestMeasurements() done", result);
+
+      this.setState({
+        weatherStations: updateWeatherStation(this.state.weatherStations, result)
+      });
+    });
+  }
+
+  stationChanged() {
+    console.log("stationChanged", this.state.currentStation);
+    if (this.state.currentStation != null) {
+      currentStation.getLatestMeasurements().then(result => {
+        console.log(result);
+        this.setState({
+          weatherStations: this.state.weatherStations.map(station => {
+            if (station.id === result.id) {
+              return result;
+            } else {
+              return station;
+            }
+          })
+        });
+      });      
+    }
   }
 
   showAllStations = (e) => {
@@ -92,9 +146,38 @@ class WeatherComponent extends React.Component {
   }
 
   getCurrentStation = () => this.state.weatherStations.find(station => station.id === this.state.currentStationId);
+
+  renderCurrentMeasurements()  {
+    const UNKNOWN_STRING = "Okänt";
+    const LOADING_STRING = "Laddar"
+
+    const currentStation = this.getCurrentStation();
+    if (currentStation != null && currentStation.measurements != null) {
+      return (<table>
+        <tr>
+          <th>Temperatur</th>
+          <td>{currentStation.measurements.ambient_temp + "°" || UNKNOWN_STRING}</td>
+        </tr>
+        <tr>
+          <th>Lufttryck</th>
+          <td>{currentStation.measurements.air_pressure + " hPA" || UNKNOWN_STRING}</td>
+        </tr>
+        <tr>
+          <th>Luftfuktighet</th>
+          <td>{currentStation.measurements.humidity + "%" || UNKNOWN_STRING}</td>
+        </tr>
+        <tr>
+          <th>Vindstyrka (riktning)</th>
+          <td>{currentStation.measurements.wind_speed + "km/h" + " (" + currentStation.measurements.wind_direction + ")"}</td>
+        </tr>
+      </table>);
+    } else {
+      return (<div className="container"><p>{LOADING_STRING}...</p></div>);
+    }
+  }
   
   render() {
-    const stationItems = this.state.weatherStations.map((station) => <WeatherStation station={station} click={this.stationClicked} />)
+    const stationItems = this.state.weatherStations.map((station) => <WeatherStationComponent station={station} click={this.stationClicked} />)
 
     if (this.state.currentStationId == null) {
       return (<div className="container">
@@ -109,6 +192,7 @@ class WeatherComponent extends React.Component {
       </div>);
     } else {
       const currentStation = this.getCurrentStation();
+
       return (<div className="container">
         <nav aria-label="breadcrumb">
           <ol class="breadcrumb bg-transparent">
@@ -116,7 +200,13 @@ class WeatherComponent extends React.Component {
             <li class="breadcrumb-item active">{currentStation.name}</li>
           </ol>
         </nav>
-        
+        <div className="container">
+          <div className="pb-4">
+            <h2>{currentStation.name}</h2>
+            <small><i className="fas fa-location-arrow" /> <span>{currentStation.coords.lat}, {currentStation.coords.long}</span></small>
+          </div>
+          {this.renderCurrentMeasurements()}
+        </div>
       </div>)
     }
   }
