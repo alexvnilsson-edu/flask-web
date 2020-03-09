@@ -160,7 +160,7 @@ class WeatherComponent extends React.Component {
         </tr>
         <tr>
           <th>Lufttryck</th>
-          <td>{currentStation.measurements.air_pressure + " hPA" || UNKNOWN_STRING}</td>
+          <td>{currentStation.measurements.air_pressure + " hPa" || UNKNOWN_STRING}</td>
         </tr>
         <tr>
           <th>Luftfuktighet</th>
