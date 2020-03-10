@@ -14,20 +14,20 @@ class WeatherStationComponent extends React.Component {
     super(props);
 
     this.station = props.station;
-    this.clickEvent = props.click;
-  }
-
-  click = (station, e) => {
-    console.log("Clicked station: " + station.id);
+    this.click = props.click;
   }
 
   render() {
-    return (<button className="list-group-item list-group-item-action border-0" onClick={(e) => this.clickEvent(this.station, e)}>
+    return (<button className="list-group-item list-group-item-action border-0" onClick={(e) => this.click(this.station, e)}>
       <div className="font-weight-bold">{this.station.name}</div>
-      <div className="pt-2">
+      <div className="d-flex pt-2">
+        <small className="text-muted mr-4">
+          <span>{this.station.location.name}, {this.station.location.country}</span>
+        </small>
+
         <small className="text-muted">
-          <i className="fas fa-location-arrow mr-2" />
-          <span>{this.station.coords.lat}, {this.station.coords.long}</span>
+          <i className="fas fa-compass mr-1" />
+          <span>{this.station.location.coords.lat}, {this.station.location.coords.long}</span>
         </small>
       </div>
       </button>);
@@ -38,17 +38,16 @@ class WeatherStation{
   constructor(station) {
     this.id = station.id;
     this.name = station.name;
-    this.coords = station.coords;
-    this.measurements = null;
+    this.location = station.location;
   }
 
   getLatestMeasurements() {
-    console.log("getLatestMeasurements() station.id: " + this.id);
     return new Promise((resolve, reject) => {
-      fetch("https://apex.oracle.com/pls/apex/raspberrypi/weatherstation/getlatestmeasurements/" + this.id)
+      fetch("/api/apex/station/" + this.id + "/measurements")
       .then(res => res.json())
       .then((result) => {
-        const measurements = result.items.find(r => r.weather_stn_id === this.id);
+        const measurements = result;
+        delete measurements["id"];
         this.measurements = measurements;
 
         return resolve(this);
@@ -76,22 +75,11 @@ class WeatherComponent extends React.Component {
   }
 
   componentDidMount() {
-    fetch("https://apex.oracle.com/pls/apex/raspberrypi/weatherstation/getallstations")
-      .then(res => res.json())      
-      .then((res) => new Promise((resolve, reject) => {
-        const stations = [];
-
-        res.items.forEach(station => stations.push(new WeatherStation({
-          id: station.weather_stn_id,
-          name: station.weather_stn_name,
-          coords: {
-            lat: station.weather_stn_lat,
-            long: station.weather_stn_long
-          }
-        })));
-
-        resolve(stations);        
-      }))
+    fetch("/api/apex/stations")
+      .then(res => res.json())
+      .then(res => {
+        return res.map(s => new WeatherStation(s))
+      })
       .then(
         (result) => {
           this.setState({
@@ -113,8 +101,6 @@ class WeatherComponent extends React.Component {
     });
 
     station.getLatestMeasurements().then((result) => {
-      console.log("getLatestMeasurements() done", result);
-
       this.setState({
         weatherStations: updateWeatherStation(this.state.weatherStations, result)
       });
@@ -122,10 +108,8 @@ class WeatherComponent extends React.Component {
   }
 
   stationChanged() {
-    console.log("stationChanged", this.state.currentStation);
     if (this.state.currentStation != null) {
       currentStation.getLatestMeasurements().then(result => {
-        console.log(result);
         this.setState({
           weatherStations: this.state.weatherStations.map(station => {
             if (station.id === result.id) {
@@ -203,7 +187,8 @@ class WeatherComponent extends React.Component {
         <div className="container">
           <div className="pb-4">
             <h2>{currentStation.name}</h2>
-            <small><i className="fas fa-location-arrow" /> <span>{currentStation.coords.lat}, {currentStation.coords.long}</span></small>
+            <p className="mb-0"><strong>{currentStation.location.name}, {currentStation.location.country}</strong></p>
+            <small><i className="fas fa-location-arrow" /> <span>{currentStation.location.coords.lat}, {currentStation.location.coords.long}</span></small>
           </div>
           {this.renderCurrentMeasurements()}
         </div>
