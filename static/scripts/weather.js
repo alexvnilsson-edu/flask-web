@@ -34,7 +34,7 @@ class WeatherStationComponent extends React.Component {
   }
 }
 
-class WeatherStation{
+class WeatherStation {
   constructor(station) {
     this.id = station.id;
     this.name = station.name;
@@ -107,22 +107,6 @@ class WeatherComponent extends React.Component {
     });
   }
 
-  stationChanged() {
-    if (this.state.currentStation != null) {
-      currentStation.getLatestMeasurements().then(result => {
-        this.setState({
-          weatherStations: this.state.weatherStations.map(station => {
-            if (station.id === result.id) {
-              return result;
-            } else {
-              return station;
-            }
-          })
-        });
-      });      
-    }
-  }
-
   showAllStations = (e) => {
     this.setState({
       currentStationId: null
@@ -131,11 +115,12 @@ class WeatherComponent extends React.Component {
 
   getCurrentStation = () => this.state.weatherStations.find(station => station.id === this.state.currentStationId);
 
-  renderCurrentMeasurements()  {
+  renderCurrentMeasurements() {
     const UNKNOWN_STRING = "Okänt";
     const LOADING_STRING = "Laddar"
 
     const currentStation = this.getCurrentStation();
+  
     if (currentStation != null && currentStation.measurements != null) {
       return (<table>
         <tr>
